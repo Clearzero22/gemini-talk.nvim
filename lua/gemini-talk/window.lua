@@ -1,13 +1,22 @@
 -- lua/gemini-talk/window.lua
 
 local M = {}
-
 local api = vim.api
-local conversation_history = {} -- 用于存储对话历史
 
--- 创建并打开悬浮窗口
+-- Function to handle user input
+local function handle_input(buf)
+  local lines = api.nvim_buf_get_lines(buf, 0, -1, false)
+  local last_line = lines[#lines]
+  if last_line and #last_line > 0 then
+    -- Clear the input line before sending
+    lines[#lines] = ""
+    api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+    require("gemini-talk").send_message(last_line)
+  end
+end
+
+-- Creates and opens the floating window
 function M.open()
-  -- 如果窗口已存在，则聚焦
   if M.win and api.nvim_win_is_valid(M.win) then
     api.nvim_set_current_win(M.win)
     return
@@ -36,41 +45,40 @@ function M.open()
   })
   M.win = win
 
-  -- 设置窗口选项
+  -- Set window options
   api.nvim_win_set_option(win, "winhl", "Normal:Normal,FloatBorder:FloatBorder")
-  api.nvim_buf_set_option(buf, "buftype", "prompt")
   api.nvim_buf_set_option(buf, "bufhidden", "hide")
 
-  -- 初始提示信息
+  -- Initial prompt message
   api.nvim_buf_set_lines(buf, 0, -1, false, { "Ask Gemini anything...", "--------------------", "" })
   api.nvim_win_set_cursor(win, { 3, 0 })
+  vim.cmd("startinsert!")
 
-  -- 设置回调，用于处理用户输入
-  vim.b[buf].prompt_callback = function(input)
-    if input and #input > 0 then
-      require("gemini-talk").send_message(input)
-    end
-  end
+  -- Keymap for Enter to send message
+  api.nvim_buf_set_keymap(buf, "i", "<Enter>", ":lua require('gemini-talk.window').handle_input_public()<CR>", { noremap = true, silent = true })
 end
 
--- 锁定/解锁输入提示
+-- Publicly accessible input handler for the keymap
+function M.handle_input_public()
+  handle_input(M.buf)
+end
+
+-- Locks or unlocks the input prompt
 function M.set_prompt_lock(locked)
   if M.buf and api.nvim_buf_is_valid(M.buf) then
     if locked then
       api.nvim_buf_set_option(M.buf, "modifiable", false)
-      M.append_content({ "Gemini is thinking..." })
+      M.append_content({ "", "Gemini is thinking..." })
     else
       api.nvim_buf_set_option(M.buf, "modifiable", true)
-      -- Remove the "thinking" message
       local lines = api.nvim_buf_get_lines(M.buf, 0, -1, false)
       local new_lines = {}
       for _, line in ipairs(lines) do
-        if line ~= "Gemini is thinking..." then
+        if not line:match("^Gemini is thinking...") then
           table.insert(new_lines, line)
         end
       end
       api.nvim_buf_set_lines(M.buf, 0, -1, false, new_lines)
-      -- Move cursor to the end for the next input
       local line_count = api.nvim_buf_line_count(M.buf)
       api.nvim_win_set_cursor(M.win, { line_count, 0 })
       vim.cmd("startinsert!")
@@ -78,11 +86,18 @@ function M.set_prompt_lock(locked)
   end
 end
 
--- 将内容追加到窗口
+-- Appends content to the window
 function M.append_content(lines)
   if M.buf and api.nvim_buf_is_valid(M.buf) then
-    api.nvim_buf_set_lines(M.buf, -1, -1, false, lines)
-    -- 自动滚动到底部
+    local current_lines = api.nvim_buf_get_lines(M.buf, 0, -1, false)
+    -- Remove the last empty line which is the prompt area
+    table.remove(current_lines)
+    for _, line in ipairs(lines) do
+      table.insert(current_lines, line)
+    end
+    -- Add a new empty line for the next prompt
+    table.insert(current_lines, "")
+    api.nvim_buf_set_lines(M.buf, 0, -1, false, current_lines)
     local line_count = api.nvim_buf_line_count(M.buf)
     api.nvim_win_set_cursor(M.win, { line_count, 0 })
   end

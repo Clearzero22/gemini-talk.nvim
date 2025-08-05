@@ -36,6 +36,9 @@ function M.send_message(prompt)
 	vim.fn.jobstart({ "curl", "-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", body, url }, {
 		on_stdout = function(_, data)
 			if data then
+				-- Log the raw response for debugging
+				vim.notify("Gemini Raw Response: " .. table.concat(data, ""), vim.log.levels.INFO)
+
 				local response = vim.json.decode(table.concat(data, ""))
 				if response and response.candidates and response.candidates[1] then
 					local content = response.candidates[1].content
@@ -45,17 +48,22 @@ function M.send_message(prompt)
 						window.append_content({ "Gemini: " .. text, "--------------------" })
 					else
 						window.append_content({ "Gemini: Error parsing response." })
+						vim.notify("Gemini Talk: Could not find text in response.", vim.log.levels.WARN)
 					end
 				elseif response.error then
 					window.append_content({ "Gemini API Error: " .. response.error.message })
+					vim.notify("Gemini API Error: " .. response.error.message, vim.log.levels.ERROR)
 				else
 					window.append_content({ "Gemini: Received an invalid response." })
+					vim.notify("Gemini Talk: Invalid response received: " .. vim.inspect(response), vim.log.levels.WARN)
 				end
 			end
 		end,
 		on_stderr = function(_, data)
 			if data then
-				vim.notify("Gemini Talk Error: " .. table.concat(data, ""), vim.log.levels.ERROR)
+				local stderr = table.concat(data, "")
+				vim.notify("Gemini Talk cURL Error: " .. stderr, vim.log.levels.ERROR)
+				window.append_content({ "Gemini cURL Error: " .. stderr })
 			end
 		end,
 	})

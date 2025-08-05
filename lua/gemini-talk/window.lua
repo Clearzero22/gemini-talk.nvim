@@ -42,7 +42,7 @@ function M.open()
   api.nvim_buf_set_option(buf, "bufhidden", "hide")
 
   -- 初始提示信息
-  api.nvim_buf_set_lines(buf, 0, -1, false, { "Ask Gemini anything...", "--------------------" })
+  api.nvim_buf_set_lines(buf, 0, -1, false, { "Ask Gemini anything...", "--------------------", "" })
   api.nvim_win_set_cursor(win, { 3, 0 })
 
   -- 设置回调，用于处理用户输入

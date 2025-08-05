@@ -29,11 +29,10 @@ function M.send_message(prompt)
 	table.insert(conversation_history, { role = "user", parts = { { text = prompt } } })
 	local body = vim.json.encode({ contents = conversation_history })
 
-	local url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key="
-		.. config.api_key
+	local url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 	-- 使用 curl 发送异步请求
-	vim.fn.jobstart({ "curl", "-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", body, url }, {
+	vim.fn.jobstart({ "curl", "-s", "-X", "POST", "-H", "Content-Type: application/json", "-H", "X-goog-api-key: " .. config.api_key, "-d", body, url }, {
 		on_stdout = function(_, data)
 			if data then
 				-- Log the raw response for debugging

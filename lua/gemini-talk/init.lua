@@ -48,33 +48,55 @@ function M.send_message(prompt)
 		},
 		{
 			on_stdout = function(_, data)
-				if data then
-					-- Log the raw response for debugging
-					vim.notify("Gemini Raw Response: " .. table.concat(data, ""), vim.log.levels.INFO)
+  if data then
+    local window = require("gemini-talk.window")
+    local raw_response = table.concat(data, "")
+    vim.notify("Gemini Raw Response: " .. raw_response, vim.log.levels.INFO)
 
-					local response = vim.json.decode(table.concat(data, ""))
-					if response and response.candidates and response.candidates[1] then
-						local content = response.candidates[1].content
-						if content and content.parts and content.parts[1] then
-							local text = content.parts[1].text
-							table.insert(conversation_history, content) -- 将模型回复添加到历史记录
-							window.append_content({ "Gemini: " .. text, "--------------------" })
-						else
-							window.append_content({ "Gemini: Error parsing response." })
-							vim.notify("Gemini Talk: Could not find text in response.", vim.log.levels.WARN)
-						end
-					elseif response.error then
-						window.append_content({ "Gemini API Error: " .. response.error.message })
-						vim.notify("Gemini API Error: " .. response.error.message, vim.log.levels.ERROR)
-					else
-						window.append_content({ "Gemini: Received an invalid response." })
-						vim.notify(
-							"Gemini Talk: Invalid response received: " .. vim.inspect(response),
-							vim.log.levels.WARN
-						)
-					end
-				end
-			end,
+    local success, response = pcall(vim.json.decode, raw_response)
+    if not success or not response then
+      window.append_content({ "Gemini: Error decoding JSON response." })
+      vim.notify("Gemini Talk: Failed to decode JSON: " .. raw_response, vim.log.levels.ERROR)
+      window.set_prompt_lock(false)
+      return
+    end
+
+    if response.error then
+      local err_msg = response.error.message or "Unknown API error"
+      window.append_content({ "Gemini API Error: " .. err_msg })
+      vim.notify("Gemini API Error: " .. err_msg, vim.log.levels.ERROR)
+      window.set_prompt_lock(false)
+      return
+    end
+
+    if not response.candidates or not response.candidates[1] then
+      window.append_content({ "Gemini: Invalid response (no candidates)." })
+      vim.notify("Gemini Talk: No candidates found in response: " .. vim.inspect(response), vim.log.levels.WARN)
+      window.set_prompt_lock(false)
+      return
+    end
+
+    local content = response.candidates[1].content
+    if not content or not content.parts or not content.parts[1] then
+      window.append_content({ "Gemini: Invalid response (no content parts)." })
+      vim.notify("Gemini Talk: No content parts found: " .. vim.inspect(response), vim.log.levels.WARN)
+      window.set_prompt_lock(false)
+      return
+    end
+
+    local text = content.parts[1].text
+    if not text then
+      window.append_content({ "Gemini: Invalid response (no text)." })
+      vim.notify("Gemini Talk: No text found in content part: " .. vim.inspect(response), vim.log.levels.WARN)
+      window.set_prompt_lock(false)
+      return
+    end
+
+    table.insert(conversation_history, content)
+    window.append_content({ "Gemini: " .. text, "--------------------" })
+    window.set_prompt_lock(false)
+  end
+end,
 			on_stderr = function(_, data)
 				if data then
 					local stderr = table.concat(data, "")

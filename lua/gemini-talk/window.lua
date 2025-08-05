@@ -46,7 +46,7 @@ function M.open()
   api.nvim_win_set_cursor(win, { 3, 0 })
 
   -- 设置回调，用于处理用户输入
-  vim.bo[buf].prompt_callback = function(input)
+  vim.b[buf].prompt_callback = function(input)
     if input and #input > 0 then
       require("gemini-talk").send_message(input)
     end

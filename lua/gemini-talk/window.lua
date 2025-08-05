@@ -53,6 +53,31 @@ function M.open()
   end
 end
 
+-- 锁定/解锁输入提示
+function M.set_prompt_lock(locked)
+  if M.buf and api.nvim_buf_is_valid(M.buf) then
+    if locked then
+      api.nvim_buf_set_option(M.buf, "modifiable", false)
+      M.append_content({ "Gemini is thinking..." })
+    else
+      api.nvim_buf_set_option(M.buf, "modifiable", true)
+      -- Remove the "thinking" message
+      local lines = api.nvim_buf_get_lines(M.buf, 0, -1, false)
+      local new_lines = {}
+      for _, line in ipairs(lines) do
+        if line ~= "Gemini is thinking..." then
+          table.insert(new_lines, line)
+        end
+      end
+      api.nvim_buf_set_lines(M.buf, 0, -1, false, new_lines)
+      -- Move cursor to the end for the next input
+      local line_count = api.nvim_buf_line_count(M.buf)
+      api.nvim_win_set_cursor(M.win, { line_count, 0 })
+      vim.cmd("startinsert!")
+    end
+  end
+end
+
 -- 将内容追加到窗口
 function M.append_content(lines)
   if M.buf and api.nvim_buf_is_valid(M.buf) then

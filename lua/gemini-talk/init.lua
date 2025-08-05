@@ -63,6 +63,7 @@ function M.send_message(prompt)
 				local stderr = table.concat(data, "")
 				vim.notify("Gemini Talk cURL Error: " .. stderr, vim.log.levels.ERROR)
 				window.append_content({ "Gemini cURL Error: " .. stderr })
+				window.set_prompt_lock(false) -- 解锁输入
 			end
 		end,
 	})
